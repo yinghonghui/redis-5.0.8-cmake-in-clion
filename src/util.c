@@ -291,6 +291,17 @@ uint32_t sdigits10(int64_t v) {
  *
  * Modified in order to handle signed integers since the original code was
  * designed for unsigned integers. */
+/* 将 long long 转换为字符串。 返回数量
+  * 代表数字所需的字符。
+  * 如果缓冲区不足以存储字符串，则返回 0。
+  *
+  * 基于以下文章（显然没有提供
+  *新颖的方法，但只宣传已经使用的技术）：
+  *
+  * https://www.facebook.com/notes/facebook-engineering/three-optimization-tips-for-c/10151361643253920
+  *
+  * 修改以处理有符号整数，因为原始代码是
+  * 专为无符号整数设计。 */
 int ll2string(char *dst, size_t dstlen, long long svalue) {
     static const char digits[201] =
         "0001020304050607080910111213141516171819"

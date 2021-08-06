@@ -3722,8 +3722,8 @@ void moduleBlockedClientPipeReadable(aeEventLoop *el, int fd, void *privdata, in
     UNUSED(privdata);
 }
 
-/* This is called from blocked.c in order to unblock a client: may be called
- * for multiple reasons while the client is in the middle of being blocked
+/* This is called from blocked.c in order to unblock a client:
+ * may be called for multiple reasons while the client is in the middle of being blocked
  * because the client is terminated, but is also called for cleanup when a
  * client is unblocked in a clean way after replaying.
  *

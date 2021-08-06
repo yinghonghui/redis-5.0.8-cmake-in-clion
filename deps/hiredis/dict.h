@@ -57,6 +57,7 @@ typedef struct dictType {
     void (*valDestructor)(void *privdata, void *obj);
 } dictType;
 
+//字典数据结构
 typedef struct dict {
     dictEntry **table;
     dictType *type;

@@ -64,6 +64,8 @@ int anetSetBlock(char *err, int fd, int non_block) {
     /* Set the socket blocking (if non_block is zero) or non-blocking.
      * Note that fcntl(2) for F_GETFL and F_SETFL can't be
      * interrupted by a signal. */
+    /* 设置套接字阻塞（如果 non_block 为零）或非阻塞。
+     * 请注意，F_GETFL 和 F_SETFL 的 fcntl(2) 不能被信号中断。 */
     if ((flags = fcntl(fd, F_GETFL)) == -1) {
         anetSetError(err, "fcntl(F_GETFL): %s", strerror(errno));
         return ANET_ERR;
@@ -468,7 +470,9 @@ static int _anetTcpServer(char *err, int port, char *bindaddr, int af, int backl
     char _port[6];  /* strlen("65535") */
     struct addrinfo hints, *servinfo, *p;
 
+    //处理端口号
     snprintf(_port,6,"%d",port);
+
     memset(&hints,0,sizeof(hints));
     hints.ai_family = af;
     hints.ai_socktype = SOCK_STREAM;
@@ -482,6 +486,7 @@ static int _anetTcpServer(char *err, int port, char *bindaddr, int af, int backl
         if ((s = socket(p->ai_family,p->ai_socktype,p->ai_protocol)) == -1)
             continue;
 
+        // s is fd
         if (af == AF_INET6 && anetV6Only(err,s) == ANET_ERR) goto error;
         if (anetSetReuseAddr(err,s) == ANET_ERR) goto error;
         if (anetListen(err,s,p->ai_addr,p->ai_addrlen,backlog) == ANET_ERR) s = ANET_ERR;

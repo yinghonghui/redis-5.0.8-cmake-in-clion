@@ -72,6 +72,12 @@ static list *bio_jobs[BIO_NUM_OPS];
  * objects shared with the background thread. The main thread will just wait
  * that there are no longer jobs of this type to be executed before performing
  * the sensible operation. This data is also useful for reporting. */
+/* 以下数组用于保存每个待处理pending作业的数量
+  * OP 类型。 这允许我们导出 bioPendingJobsOfType() API
+  * 当主线程想要执行一些可能涉及的操作时很有用
+  * 与后台线程共享的对象。 主线程只会等待
+  * 在执行之前不再有此类作业要执行
+  * 明智的操作。 此数据也可用于报告。 */
 static unsigned long long bio_pending[BIO_NUM_OPS];
 
 /* This structure represents a background Job. It is only used locally to this

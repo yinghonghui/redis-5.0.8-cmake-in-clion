@@ -157,20 +157,11 @@ sds sdsnew(const char *init) {
 }
 
 /* Duplicate an sds string. */
-/**
- * 创建一个给定sds的副本
- * @param s: 原sds
- * @return: sds的副本
- */
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
 }
 
 /* Free an sds string. No operation is performed if 's' is NULL. */
-/**
- * 释放sds占用的空间
- * @param s
- */
 void sdsfree(sds s) {
     if (s == NULL) return;
     s_free((char*)s-sdsHdrSize(s[-1]));
@@ -210,6 +201,12 @@ void sdsclear(sds s) {
  *
  * Note: this does not change the *length* of the sds string as returned
  * by sdslen(), but only the free buffer space we have. */
+/* Enlarge 扩大 sds 字符串末尾的空闲空间，以便调用者
+  * 确定调用此函数后可以覆盖到addlen
+  * 字符串结尾后的字节，再加上一个字节作为空项。
+  *
+  * 注意：这不会改变返回的 sds 字符串的 *length*
+  * 通过 sdslen()，但只有我们拥有的可用缓冲区空间。 */
 sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t avail = sdsavail(s);
@@ -403,6 +400,11 @@ sds sdsgrowzero(sds s, size_t len) {
  *
  * After the call, the passed sds string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call. */
+/* 将 'len' 字节中的 't' 指向的指定二进制安全字符串附加到
+  * 指定 sds 字符串 's' 的结尾。
+  *
+  * 调用后，传入的sds字符串不再有效，所有的
+  * 引用必须替换为调用返回的新指针。 */
 sds sdscatlen(sds s, const void *t, size_t len) {
     size_t curlen = sdslen(s);
 

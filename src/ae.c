@@ -142,6 +142,7 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
     }
     aeFileEvent *fe = &eventLoop->events[fd];
 
+    //注册事件
     if (aeApiAddEvent(eventLoop, fd, mask) == -1)
         return AE_ERR;
     fe->mask |= mask;
@@ -163,6 +164,7 @@ void aeDeleteFileEvent(aeEventLoop *eventLoop, int fd, int mask)
      * is removed. */
     if (mask & AE_WRITABLE) mask |= AE_BARRIER;
 
+    //删除注册事件
     aeApiDelEvent(eventLoop, fd, mask);
     fe->mask = fe->mask & (~mask);
     if (fd == eventLoop->maxfd && fe->mask == AE_NONE) {
@@ -479,7 +481,9 @@ int aeWait(int fd, int mask, long long milliseconds) {
 
     memset(&pfd, 0, sizeof(pfd));
     pfd.fd = fd;
+    //
     if (mask & AE_READABLE) pfd.events |= POLLIN;
+    //
     if (mask & AE_WRITABLE) pfd.events |= POLLOUT;
 
     if ((retval = poll(&pfd, 1, milliseconds))== 1) {

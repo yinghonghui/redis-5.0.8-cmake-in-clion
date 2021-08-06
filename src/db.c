@@ -170,6 +170,9 @@ robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply) {
  * counter of the value if needed.
  *
  * The program is aborted if the key already exists. */
+
+
+
 void dbAdd(redisDb *db, robj *key, robj *val) {
     sds copy = sdsdup(key->ptr);
     int retval = dictAdd(db->dict, copy, val);
@@ -1083,6 +1086,7 @@ void setExpire(client *c, redisDb *db, robj *key, long long when) {
     dictSetSignedIntegerVal(de,when);
 
     int writable_slave = server.masterhost && server.repl_slave_ro == 0;
+    // slave
     if (c && writable_slave && !(c->flags & CLIENT_MASTER))
         rememberSlaveKeyWithExpire(db,key);
 }
@@ -1110,6 +1114,9 @@ long long getExpire(redisDb *db, robj *key) {
  * AOF and the master->slave link guarantee operation ordering, everything
  * will be consistent even if we allow write operations against expiring
  * keys. */
+// 传播过期给slave和AOF file
+// 当一个key在主节点过期了,一个对这个key的DEL被传送到所有的从节点和AOF文件
+// key 过期被集中在一个地方,
 void propagateExpire(redisDb *db, robj *key, int lazy) {
     robj *argv[2];
 
@@ -1565,4 +1572,33 @@ unsigned int delKeysInSlot(unsigned int hashslot) {
 
 unsigned int countKeysInSlot(unsigned int hashslot) {
     return server.cluster->slots_keys_count[hashslot];
+}
+
+long long emptyMigrateDb(int dbnum, int flags, void(callback)(void*)) {
+    int async = (flags & EMPTYDB_ASYNC);
+    long long removed = 0;
+
+    if (dbnum < -1 || dbnum >= server.dbnum) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    int startdb, enddb;
+    if (dbnum == -1) {
+        startdb = 0;
+        enddb = server.dbnum-1;
+    } else {
+        startdb = enddb = dbnum;
+    }
+
+    for (int j = startdb; j <= enddb; j++) {
+        removed += dictSize(server.migrateDb[j].dict);
+        if (async) {
+            emptyDbAsync(&server.migrateDb[j]);
+        } else {
+            dictEmpty(server.migrateDb[j].dict,callback);
+            dictEmpty(server.migrateDb[j].expires,callback);
+        }
+    }
+    return removed;
 }

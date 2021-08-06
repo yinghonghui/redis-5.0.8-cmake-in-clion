@@ -94,6 +94,7 @@ sds keyspaceEventsFlagsToString(int flags) {
  * 'event' is a C string representing the event name.
  * 'key' is a Redis object representing the key name.
  * 'dbid' is the database ID where the key lives.  */
+// API 提供给redis 核心其余部分,是一个简单函数
 void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     sds chan;
     robj *chanobj, *eventobj;
@@ -104,6 +105,9 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
      * This bypasses the notifications configuration, but the module engine
      * will only call event subscribers if the event type matches the types
      * they are interested in. */
+    // 如果任何模块对时间感兴趣,立马通知模块系统.这个绕过了通知配置,但是模块引擎将会唤醒时间订阅者
+    // 如果时间类型和他们感兴趣的类型相匹配
+
      moduleNotifyKeyspaceEvent(type, event, key, dbid);
     
     /* If notifications for this class of events are off, return ASAP. */

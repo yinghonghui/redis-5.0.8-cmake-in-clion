@@ -85,13 +85,17 @@ sds sdsnewlen(const void *init, size_t initlen) {
     /* Empty strings are usually created in order to append. Use type 8
      * since type 5 is not good at this. */
     if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
+    // 得到sds的header的大小
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
 
     sh = s_malloc(hdrlen+initlen+1);
     if (sh == NULL) return NULL;
+    //初始值不是null的情况
+    //库函数 void *memset(void *str, int c, size_t n) 复制字符 c（一个无符号字符）到参数 str 所指向的字符串的前 n 个字符
     if (!init)
         memset(sh, 0, hdrlen+initlen+1);
+    // s为数据部分的起始指针
     s = (char*)sh+hdrlen;
     fp = ((unsigned char*)s)-1;
     switch(type) {
@@ -191,6 +195,13 @@ void sdsclear(sds s) {
  *
  * Note: this does not change the *length* of the sds string as returned
  * by sdslen(), but only the free buffer space we have. */
+
+/* 扩大 sds 字符串末尾的空闲空间，以便调用者
+  * 确定调用此函数后可以覆盖到addlen
+  * 字符串结尾后的字节，再加上一个字节作为空项。
+  *
+  * 注意：这不会改变返回的 sds 字符串的 *length*
+  * 通过 sdslen()，但只有我们拥有的可用缓冲区空间。 */
 sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t avail = sdsavail(s);
@@ -273,8 +284,9 @@ sds sdsRemoveFreeSpace(sds s) {
  * 1) The sds header before the pointer.
  * 2) The string.
  * 3) The free buffer at the end if any.
- * 4) The implicit null term.
+ * 4) The implicit 隐藏的 null term.
  */
+// 返回分配空间全部大小
 size_t sdsAllocSize(sds s) {
     size_t alloc = sdsalloc(s);
     return sdsHdrSize(s[-1])+alloc+1;
@@ -373,6 +385,11 @@ sds sdsgrowzero(sds s, size_t len) {
  *
  * After the call, the passed sds string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call. */
+/* 将 'len' 字节中的 't' 指向的指定二进制安全字符串附加到
+  * 指定 sds 字符串 's' 的结尾。
+  *
+  * 调用后，传入的sds字符串不再有效，所有的
+  * 引用必须替换为调用返回的新指针。 */
 sds sdscatlen(sds s, const void *t, size_t len) {
     size_t curlen = sdslen(s);
 

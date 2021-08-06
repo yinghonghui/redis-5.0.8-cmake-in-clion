@@ -40,6 +40,8 @@ struct _rio {
     /* Backend functions.
      * Since this functions do not tolerate short writes or reads the return
      * value is simplified to: zero on error, non zero on complete success. */
+    /* 后端功能。
+      * 由于此函数不容忍短写入或读取，因此返回值简化为：错误为零，完全成功为非零。 */
     size_t (*read)(struct _rio *, void *buf, size_t len);
     size_t (*write)(struct _rio *, const void *buf, size_t len);
     off_t (*tell)(struct _rio *);
@@ -49,6 +51,8 @@ struct _rio {
      * designed so that can be called with the current checksum, and the buf
      * and len fields pointing to the new block of data to add to the checksum
      * computation. */
+    /* update_cksum 方法 if not NULL 用于计算到目前为止读取或写入的所有数据的校验和。
+     * 该方法应设计为可以使用当前校验和调用，并且指向新数据块的 buf 和 len 字段添加到校验和计算中。 */
     void (*update_cksum)(struct _rio *, const void *buf, size_t len);
 
     /* The current checksum */
@@ -61,19 +65,23 @@ struct _rio {
     size_t max_processing_chunk;
 
     /* Backend-specific vars. */
+    /* 后端特定变量。 */
     union {
         /* In-memory buffer target. */
+        /* 内存缓冲区目标。 */
         struct {
             sds ptr;
             off_t pos;
         } buffer;
         /* Stdio file pointer target. */
+        /* Stdio文件指针目标。 */
         struct {
             FILE *fp;
             off_t buffered; /* Bytes written since last fsync. */
             off_t autosync; /* fsync after 'autosync' bytes written. */
         } file;
         /* Multiple FDs target (used to write to N sockets). */
+        /* 多个 FD 目标（用于写入 N 个套接字）。 */
         struct {
             int *fds;       /* File descriptors. */
             int *state;     /* Error state of each fd. 0 (if ok) or errno. */
@@ -89,7 +97,9 @@ typedef struct _rio rio;
 /* The following functions are our interface with the stream. They'll call the
  * actual implementation of read / write / tell, and will update the checksum
  * if needed. */
-
+/* 以下函数是我们与流的接口。 他们会打电话给
+  * 实际执行读/写/告诉，并会更新校验和
+  * 如果需要的话。 */
 static inline size_t rioWrite(rio *r, const void *buf, size_t len) {
     while (len) {
         size_t bytes_to_write = (r->max_processing_chunk && r->max_processing_chunk < len) ? r->max_processing_chunk : len;

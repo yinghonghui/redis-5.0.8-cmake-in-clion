@@ -55,14 +55,16 @@ void ldbLogRedisReply(char *reply);
 sds ldbCatStackValue(sds s, lua_State *lua, int idx);
 
 /* Debugger shared state is stored inside this global structure. */
+/* 调试器共享状态存储在这个全局结构中。 */
 #define LDB_BREAKPOINTS_MAX 64  /* Max number of breakpoints. */
 #define LDB_MAX_LEN_DEFAULT 256 /* Default len limit for replies / var dumps. */
 struct ldbState {
     int fd;     /* Socket of the debugging client. */
     int active; /* Are we debugging EVAL right now? */
-    int forked; /* Is this a fork()ed debugging session? */
+    int forked; /* Is this a fork()ed debugging session? *//* 这是一个 fork()ed 调试会话吗？ */
     list *logs; /* List of messages to send to the client. */
     list *traces; /* Messages about Redis commands executed since last stop.*/
+    /* 关于自上次停止后执行的 Redis 命令的消息。*/
     list *children; /* All forked debugging sessions pids. */
     int bp[LDB_BREAKPOINTS_MAX]; /* An array of breakpoints line numbers. */
     int bpcount; /* Number of valid entries inside bp. */

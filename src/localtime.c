@@ -61,6 +61,7 @@ void nolocks_localtime(struct tm *tmp, time_t t, time_t tz, int dst) {
     const time_t secs_hour = 3600;
     const time_t secs_day = 3600*24;
 
+    //秒
     t -= tz;                            /* Adjust for timezone. */
     t += 3600*dst;                      /* Adjust for daylight time. */
     time_t days = t / secs_day;         /* Days passed since epoch. */

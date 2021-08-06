@@ -88,11 +88,15 @@ int activeExpireCycleTryExpire(redisDb *db, dictEntry *de, long long now) {
  *
  * If type is ACTIVE_EXPIRE_CYCLE_FAST the function will try to run a
  * "fast" expire cycle that takes no longer than EXPIRE_FAST_CYCLE_DURATION
- * microseconds, and is not repeated again before the same amount of time.
+ * microseconds, and is not repeated 重复的 again before the same amount of time.
  *
  * If type is ACTIVE_EXPIRE_CYCLE_SLOW, that normal expire cycle is
  * executed, where the time limit is a percentage of the REDIS_HZ period
- * as specified by the ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC define. */
+ * as specified 指定的 by the ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC define. */
+// 尝试回收部分过期的key,这个算法使用是自适应的,将会使用一点CPU周期,如果有部分过期的keys,除此之外为了防止太多的内存被被使用
+// key 能够被从空间内删除
+// 在每次的迭代中,不会超过CRON_DBS_PER_CALL 个数据库被测试
+
 
 void activeExpireCycle(int type) {
     /* This function has some global state in order to continue the work
@@ -108,6 +112,7 @@ void activeExpireCycle(int type) {
     /* When clients are paused the dataset should be static not just from the
      * POV of clients not being able to write, but also from the POV of
      * expires and evictions of keys not being performed. */
+    // client 被暂停了,数据集应该是静态的,不仅仅POV的连接不能够去写入,而且也POV过期和驱除key也不能执行
     if (clientsArePaused()) return;
 
     if (type == ACTIVE_EXPIRE_CYCLE_FAST) {
@@ -126,6 +131,9 @@ void activeExpireCycle(int type) {
      * 2) If last time we hit the time limit, we want to scan all DBs
      * in this iteration, as there is work to do in some DB and we don't want
      * expired keys to use memory for too much time. */
+    // 我们每次循环都会执行测试 CRON_DBS_PER_CALL,但是两项除外
+    // 不要测试多余我们有的DB
+    // 如果上次达到限制的事件,在这一次的迭代我们想去扫描所有的数据库,因为有一些工作和部分数据库有关,而且我们不想过期的keys 占用太多内存太多的时间
     if (dbs_per_call > server.dbnum || timelimit_exit)
         dbs_per_call = server.dbnum;
 
@@ -143,6 +151,7 @@ void activeExpireCycle(int type) {
     /* Accumulate some global stats as we expire keys, to have some idea
      * about the number of keys that are already logically expired, but still
      * existing inside the database. */
+    // 积累一些全局统计数据,对那些已经逻辑上过期,但是还在数据库理马的数据我们做一些了解
     long total_sampled = 0;
     long total_expired = 0;
 
@@ -157,6 +166,7 @@ void activeExpireCycle(int type) {
 
         /* Continue to expire if at the end of the cycle more than 25%
          * of the keys were expired. */
+        // 如果在循环的最好,还有25%的key已经过期,继续去过期
         do {
             unsigned long num, slots;
             long long now, ttl_sum;
@@ -281,7 +291,10 @@ void activeExpireCycle(int type) {
 dict *slaveKeysWithExpire = NULL;
 
 /* Check the set of keys created by the master with an expire set in order to
- * check if they should be evicted. */
+ * check if they should be evicted.
+ * */
+/* 检查由设置了过期时间的主节点创建的密钥集，以检查它们是否应该被驱逐。
+  * */
 void expireSlaveKeys(void) {
     if (slaveKeysWithExpire == NULL ||
         dictSize(slaveKeysWithExpire) == 0) return;
@@ -296,6 +309,7 @@ void expireSlaveKeys(void) {
 
         /* Check the key against every database corresponding to the
          * bits set in the value bitmap. */
+        // 根据bits set 在bitmap的数值来检查key,针对每一个数据库
         int dbid = 0;
         while(dbids && dbid < server.dbnum) {
             if ((dbids & 1) != 0) {
@@ -341,6 +355,7 @@ void expireSlaveKeys(void) {
 
 /* Track keys that received an EXPIRE or similar command in the context
  * of a writable slave. */
+//
 void rememberSlaveKeyWithExpire(redisDb *db, robj *key) {
     if (slaveKeysWithExpire == NULL) {
         static dictType dt = {

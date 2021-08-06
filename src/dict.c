@@ -77,6 +77,7 @@ void dictSetHashFunctionSeed(uint8_t *seed) {
     memcpy(dict_hash_function_seed,seed,sizeof(dict_hash_function_seed));
 }
 
+//hash 种子
 uint8_t *dictGetHashFunctionSeed(void) {
     return dict_hash_function_seed;
 }
@@ -132,6 +133,8 @@ int _dictInit(dict *d, dictType *type,
 
 /* Resize the table to the minimal size that contains all the elements,
  * but with the invariant of a USED/BUCKETS ratio near to <= 1 */
+/* 将表格调整为包含所有元素的最小尺寸，
+  * 但使用不变量/桶比率接近 <= 1 */
 int dictResize(dict *d)
 {
     int minimal;
@@ -144,6 +147,7 @@ int dictResize(dict *d)
 }
 
 /* Expand or create the hash table */
+// 新建 dictht 二次幂 扩大
 int dictExpand(dict *d, unsigned long size)
 {
     /* the size is invalid if it is smaller than the number of
@@ -158,13 +162,17 @@ int dictExpand(dict *d, unsigned long size)
     if (realsize == d->ht[0].size) return DICT_ERR;
 
     /* Allocate the new hash table and initialize all pointers to NULL */
+    /* 分配新的哈希表并将所有指针初始化为 NULL */
     n.size = realsize;
     n.sizemask = realsize-1;
     n.table = zcalloc(realsize*sizeof(dictEntry*));
     n.used = 0;
 
+
     /* Is this the first initialization? If so it's not really a rehashing
      * we just set the first hash table so that it can accept keys. */
+    /* 这是第一次初始化吗？ 如果是这样，这不是真正的重述
+      * 我们只是设置了第一个哈希表，以便它可以接受键。 */
     if (d->ht[0].table == NULL) {
         d->ht[0] = n;
         return DICT_OK;
@@ -179,21 +187,33 @@ int dictExpand(dict *d, unsigned long size)
 /* Performs N steps of incremental rehashing. Returns 1 if there are still
  * keys to move from the old to the new hash table, otherwise 0 is returned.
  *
- * Note that a rehashing step consists in moving a bucket (that may have more
+ * Note  that a rehashing step consists in moving a bucket (that may have more
  * than one key as we use chaining) from the old to the new hash table, however
  * since part of the hash table may be composed of empty spaces, it is not
- * guaranteed that this function will rehash even a single bucket, since it
+ * guaranteed  that this function will rehash even a single bucket, since it
  * will visit at max N*10 empty buckets in total, otherwise the amount of
  * work it does would be unbound and the function may block for a long time. */
+/*  执行 N 步增量重新散列。 如果还有，则返回 1
+  * 键从旧的哈希表移动到新的哈希表，否则返回 0。
+  *
+  * 请注意，重新散列步骤包括移动一个桶（可能有更多
+  * 而不是一个键，因为我们使用链接chaining）从旧哈希表到新哈希表，但是
+  * 因为哈希表的一部分可能由空格组成，所以不是
+  * 保证此函数甚至会重新散列单个存储桶，因为它
+  * 将访问最多 N*10 个空桶，否则访问数量
+  * 它所做的工作将是未绑定的unbound，并且该功能可能会阻塞很长时间。 */
 int dictRehash(dict *d, int n) {
     int empty_visits = n*10; /* Max number of empty buckets to visit. */
     if (!dictIsRehashing(d)) return 0;
 
     while(n-- && d->ht[0].used != 0) {
+        //获取链表
         dictEntry *de, *nextde;
 
         /* Note that rehashidx can't overflow as we are sure there are more
          * elements because ht[0].used != 0 */
+        /* 请注意，rehashidx 不能溢出，因为我们确信还有更多
+          * 元素因为 ht[0].used != 0 */
         assert(d->ht[0].size > (unsigned long)d->rehashidx);
         while(d->ht[0].table[d->rehashidx] == NULL) {
             d->rehashidx++;
@@ -207,6 +227,7 @@ int dictRehash(dict *d, int n) {
             nextde = de->next;
             /* Get the index in the new hash table */
             h = dictHashKey(d, de->key) & d->ht[1].sizemask;
+            //插入到首位置
             de->next = d->ht[1].table[h];
             d->ht[1].table[h] = de;
             d->ht[0].used--;
@@ -218,6 +239,7 @@ int dictRehash(dict *d, int n) {
     }
 
     /* Check if we already rehashed the whole table... */
+    /* 检查我们是否已经重新散列了整个表... */
     if (d->ht[0].used == 0) {
         zfree(d->ht[0].table);
         d->ht[0] = d->ht[1];
@@ -237,7 +259,10 @@ long long timeInMilliseconds(void) {
     return (((long long)tv.tv_sec)*1000)+(tv.tv_usec/1000);
 }
 
+
+
 /* Rehash for an amount of time between ms milliseconds and ms+1 milliseconds */
+/* 重新散列 ms 毫秒和 ms+1 毫秒之间的时间量 */
 int dictRehashMilliseconds(dict *d, int ms) {
     long long start = timeInMilliseconds();
     int rehashes = 0;
@@ -479,6 +504,7 @@ dictEntry *dictFind(dict *d, const void *key)
     uint64_t h, idx, table;
 
     if (d->ht[0].used + d->ht[1].used == 0) return NULL; /* dict is empty */
+    //
     if (dictIsRehashing(d)) _dictRehashStep(d);
     h = dictHashKey(d, key);
     for (table = 0; table <= 1; table++) {
@@ -941,6 +967,7 @@ static int _dictExpandIfNeeded(dict *d)
 }
 
 /* Our hash table capability is a power of two */
+/* 我们的哈希表能力是 2 的幂 */
 static unsigned long _dictNextPower(unsigned long size)
 {
     unsigned long i = DICT_HT_INITIAL_SIZE;

@@ -123,17 +123,20 @@ static size_t rioFileWrite(rio *r, const void *buf, size_t len) {
 }
 
 /* Returns 1 or 0 for success/failure. */
+//
 static size_t rioFileRead(rio *r, void *buf, size_t len) {
     return fread(buf,len,1,r->io.file.fp);
 }
 
 /* Returns read/write position in file. */
+/* 返回文件中的读/写位置。 */
 static off_t rioFileTell(rio *r) {
     return ftello(r->io.file.fp);
 }
 
 /* Flushes any buffer to target device if applicable. Returns 1 on success
  * and 0 on failures. */
+/* 如果适用，将任何缓冲区刷新到目标设备。 成功时返回 1，失败时返回 0。 */
 static int rioFileFlush(rio *r) {
     return (fflush(r->io.file.fp) == 0) ? 1 : 0;
 }
@@ -299,6 +302,11 @@ void rioGenericUpdateChecksum(rio *r, const void *buf, size_t len) {
  * buffers sometimes the OS buffers way too much, resulting in too many
  * disk I/O concentrated in very little time. When we fsync in an explicit
  * way instead the I/O pressure is more distributed across time. */
+/* 将基于文件的 rio 对象设置为每写入一个 'bytes' 文件时自动同步。
+ * 默认情况下设置为零，这意味着不执行自动文件同步。
+ * 此功能在某些情况下很有用，因为当我们依赖 OS 写入缓冲区时，
+ * 有时 OS 缓冲区太多，导致太多磁盘 I/O 集中在很短的时间内。
+ * 相反，当我们以显式方式 fsync 时，I/O 压力会在时间上更加分散。 */
 void rioSetAutoSync(rio *r, off_t bytes) {
     serverAssert(r->read == rioFileIO.read);
     r->io.file.autosync = bytes;

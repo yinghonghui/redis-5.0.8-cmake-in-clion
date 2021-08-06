@@ -62,6 +62,7 @@ static void aeApiFree(aeEventLoop *eventLoop) {
 static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
     aeApiState *state = eventLoop->apidata;
 
+    //用于在文件描述符集合中增加一个新的文件描述符
     if (mask & AE_READABLE) FD_SET(fd,&state->rfds);
     if (mask & AE_WRITABLE) FD_SET(fd,&state->wfds);
     return 0;
@@ -70,6 +71,7 @@ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
 static void aeApiDelEvent(aeEventLoop *eventLoop, int fd, int mask) {
     aeApiState *state = eventLoop->apidata;
 
+    //用于在文件描述符集合中删除一个文件描述符
     if (mask & AE_READABLE) FD_CLR(fd,&state->rfds);
     if (mask & AE_WRITABLE) FD_CLR(fd,&state->wfds);
 }

@@ -2957,6 +2957,14 @@ void clusterFailoverReplaceYourMaster(void) {
  * 2) Try to get elected by masters.
  * 3) Perform the failover informing all the other nodes.
  */
+/* 如果我们是从节点并且我们的主服务，则调用此函数
+  * 非零数量的哈希槽处于 FAIL 状态。
+  *
+  * 该函数的gaol为：
+  * 1) 为了检查我们是否能够执行故障转移，我们的数据是否更新？
+  * 2) 争取被master选举。
+  * 3) 执行故障转移通知所有其他节点。
+  */
 void clusterHandleSlaveFailover(void) {
     mstime_t data_age;
     mstime_t auth_age = mstime() - server.cluster->failover_auth_time;
@@ -3605,9 +3613,14 @@ void clusterCron(void) {
  * reaction to events fired but that are not safe to perform inside event
  * handlers, or to perform potentially expansive tasks that we need to do
  * a single time before replying to clients. */
+
+/* 在事件处理程序返回睡眠事件之前调用此函数。
+ * 执行必须尽快完成以响应触发的事件但在内部事件处理程序中执行不安全的操作很有用，
+ * 或者执行我们需要在回复客户端之前执行一次的潜在扩展任务。 */
 void clusterBeforeSleep(void) {
     /* Handle failover, this is needed when it is likely that there is already
      * the quorum from masters in order to react fast. */
+    /* 处理故障转移，当可能已经有来自主节点的仲裁以快速反应时需要这样做。 */
     if (server.cluster->todo_before_sleep & CLUSTER_TODO_HANDLE_FAILOVER)
         clusterHandleSlaveFailover();
 
@@ -4389,6 +4402,8 @@ NULL
             }
             /* If this hash slot was served by 'myself' before to switch
              * make sure there are no longer local keys for this hash slot. */
+            /* 如果这个哈希槽在切换之前是由 'myself' 提供的
+              * 确保此哈希槽不再有本地密钥。 */
             if (server.cluster->slots[slot] == myself && n != myself) {
                 if (countKeysInSlot(slot) != 0) {
                     addReplyErrorFormat(c,
@@ -4400,6 +4415,9 @@ NULL
             /* If this slot is in migrating status but we have no keys
              * for it assigning the slot to another node will clear
              * the migratig status. */
+            /* 如果这个插槽处于迁移状态但我们没有密钥
+              * 因为它将插槽分配给另一个节点将清除
+              * 迁移状态。 */
             if (countKeysInSlot(slot) == 0 &&
                 server.cluster->migrating_slots_to[slot])
                 server.cluster->migrating_slots_to[slot] = NULL;
@@ -4790,6 +4808,8 @@ NULL
 
 /* Generates a DUMP-format representation of the object 'o', adding it to the
  * io stream pointed by 'rio'. This function can't fail. */
+/* 生成对象 'o' 的 DUMP 格式表示，将其添加到
+  * 'rio' 指向的 io 流。 这个功能不能失败。 */
 void createDumpPayload(rio *payload, robj *o, robj *key) {
     unsigned char buf[2];
     uint64_t crc;
@@ -4985,6 +5005,7 @@ migrateCachedSocket* migrateGetSocket(client *c, robj *host, robj *port, long ti
     name = sdscatlen(name,host->ptr,sdslen(host->ptr));
     name = sdscatlen(name,":",1);
     name = sdscatlen(name,port->ptr,sdslen(port->ptr));
+    // migrate_cache_sockets
     cs = dictFetchValue(server.migrate_cached_sockets,name);
     if (cs) {
         sdsfree(name);
@@ -5082,7 +5103,7 @@ void migrateCommand(client *c) {
     robj **ov = NULL; /* Objects to migrate. */
     robj **kv = NULL; /* Key names. */
     robj **newargv = NULL; /* Used to rewrite the command as DEL ... keys ... */
-    rio cmd, payload;
+    rio cmd, payload;//有效载荷
     int may_retry = 1;
     int write_error = 0;
     int argv_rewritten = 0;
@@ -5092,6 +5113,7 @@ void migrateCommand(client *c) {
     int num_keys = 1;  /* By default only migrate the 'key' argument. */
 
     /* Parse additional options */
+    /* 解析附加选项 */
     for (j = 6; j < c->argc; j++) {
         int moreargs = j < c->argc-1;
         if (!strcasecmp(c->argv[j]->ptr,"copy")) {
@@ -5139,6 +5161,7 @@ void migrateCommand(client *c) {
     int oi = 0;
 
     for (j = 0; j < num_keys; j++) {
+        // 查找key 的值
         if ((ov[oi] = lookupKeyRead(c->db,c->argv[first_key+j])) != NULL) {
             kv[oi] = c->argv[first_key+j];
             oi++;
@@ -5217,6 +5240,7 @@ try_again:
 
         /* Emit the payload argument, that is the serialized object using
          * the DUMP format. */
+        /* 发出有效载荷参数，即使用 DUMP 格式的序列化对象。 */
         createDumpPayload(&payload,ov[j],kv[j]);
         serverAssertWithInfo(c,NULL,
             rioWriteBulkString(&cmd,payload.io.buffer.ptr,
@@ -5432,7 +5456,7 @@ void readwriteCommand(client *c) {
 }
 
 /* Return the pointer to the cluster node that is able to serve the command.
- * For the function to succeed the command should only target either:
+ * For the function to succeed the command should only target either任何一个:
  *
  * 1) A single key (even multiple times like LPOPRPUSH mylist mylist).
  * 2) Multiple keys in the same hash slot, while the slot is stable (no
@@ -5667,7 +5691,9 @@ void clusterRedirectClient(client *c, clusterNode *n, int hashslot, int error_co
 }
 
 /* This function is called by the function processing clients incrementally
- * to detect timeouts, in order to handle the following case:
+ * to detect 检测 timeouts, in order to handle the following case:
+ *
+ * Redis Blpop 命令移出并获取列表的第一个元素， 如果列表没有元素会阻塞列表直到等待超时或发现可弹出元素为止。
  *
  * 1) A client blocks with BLPOP or similar blocking operation.
  * 2) The master migrates the hash slot elsewhere or turns into a slave.
@@ -5677,6 +5703,7 @@ void clusterRedirectClient(client *c, clusterNode *n, int hashslot, int error_co
  * If the client is found to be blocked into an hash slot this node no
  * longer handles, the client is sent a redirection error, and the function
  * returns 1. Otherwise 0 is returned and no operation is performed. */
+// 判断阻塞client是否需要重定向
 int clusterRedirectBlockedClientIfNeeded(client *c) {
     if (c->flags & CLIENT_BLOCKED &&
         (c->btype == BLOCKED_LIST ||

@@ -81,6 +81,10 @@ robj *createRawStringObject(const char *ptr, size_t len) {
 /* Create a string object with encoding OBJ_ENCODING_EMBSTR, that is
  * an object where the sds string is actually an unmodifiable string
  * allocated in the same chunk as the object itself. */
+
+/* 创建一个编码为OBJ_ENCODING_EMBSTR的字符串对象，即
+  * 一个对象，其中 sds 字符串实际上是一个不可修改的字符串
+  * 分配在与对象本身相同的块chunk中。 */
 robj *createEmbeddedStringObject(const char *ptr, size_t len) {
     robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1);
     struct sdshdr8 *sh = (void*)(o+1);
@@ -115,6 +119,11 @@ robj *createEmbeddedStringObject(const char *ptr, size_t len) {
  *
  * The current limit of 44 is chosen so that the biggest string object
  * we allocate as EMBSTR will still fit into the 64 byte arena of jemalloc. */
+/*  创建一个 EMBSTR 编码的字符串对象，如果它小于
+  * OBJ_ENCODING_EMBSTR_SIZE_LIMIT，否则RAW编码为
+  * 用过的。
+  * 选择当前限制为 44 以便最大字符串对象
+  * 我们分配因为 EMBSTR 仍然适合 jemalloc 的 64 字节领域。 */
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
 robj *createStringObject(const char *ptr, size_t len) {
     if (len <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT)
@@ -350,6 +359,7 @@ void incrRefCount(robj *o) {
     if (o->refcount != OBJ_SHARED_REFCOUNT) o->refcount++;
 }
 
+
 void decrRefCount(robj *o) {
     if (o->refcount == 1) {
         switch(o->type) {
@@ -509,6 +519,8 @@ robj *tryObjectEncoding(robj *o) {
 
 /* Get a decoded version of an encoded object (returned as a new object).
  * If the object is already raw-encoded just increment the ref count. */
+/* 获取编码对象的解码版本（作为新对象返回）。
+  * 如果对象已经是原始编码的，只需增加引用计数。 */
 robj *getDecodedObject(robj *o) {
     robj *dec;
 
@@ -821,7 +833,6 @@ size_t objectComputeSize(robj *o, size_t sample_size) {
             asize = sizeof(*o)+sizeof(dict)+(sizeof(struct dictEntry*)*dictSlots(d));
             while((de = dictNext(di)) != NULL && samples < sample_size) {
                 ele = dictGetKey(de);
-                elesize += sizeof(struct dictEntry) + sdsAllocSize(ele);
                 samples++;
             }
             dictReleaseIterator(di);

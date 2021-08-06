@@ -331,6 +331,7 @@ zskiplistNode *zslFirstInRange(zskiplist *zsl, zrangespec *range) {
     int i;
 
     /* If everything is out of range, return early. */
+    /* 如果一切都超出范围，则早点返回。 */
     if (!zslIsInRange(zsl,range)) return NULL;
 
     x = zsl->header;

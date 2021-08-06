@@ -62,6 +62,7 @@ void listEmpty(list *list)
     len = list->len;
     while(len--) {
         next = current->next;
+        // value 特殊对象需要回收
         if (list->free) list->free(current->value);
         zfree(current);
         current = next;
@@ -111,6 +112,12 @@ list *listAddNodeHead(list *list, void *value)
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
+/* 向列表中添加一个新节点，到尾部，包含指定的“值”
+  * 指针作为值。
+  *
+  * 出错时，返回 NULL 并且不执行任何操作（即
+  * 列表保持不变）。
+  * 成功时，返回传递给函数的“列表”指针。 */
 list *listAddNodeTail(list *list, void *value)
 {
     listNode *node;
@@ -202,6 +209,7 @@ void listReleaseIterator(listIter *iter) {
 }
 
 /* Create an iterator in the list private iterator structure */
+/* 在列表私有迭代器结构中创建一个迭代器 */
 void listRewind(list *list, listIter *li) {
     li->next = list->head;
     li->direction = AL_START_HEAD;

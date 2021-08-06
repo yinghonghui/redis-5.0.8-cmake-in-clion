@@ -143,6 +143,7 @@ static int dictAdd(dict *ht, void *key, void *val) {
 
     /* Allocates the memory and stores key */
     entry = malloc(sizeof(*entry));
+    // 链表插入头数据
     entry->next = ht->table[index];
     ht->table[index] = entry;
 

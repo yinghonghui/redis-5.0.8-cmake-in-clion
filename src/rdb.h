@@ -135,9 +135,12 @@ uint64_t rdbLoadLen(rio *rdb, int *isencoded);
 int rdbLoadLenByRef(rio *rdb, int *isencoded, uint64_t *lenptr);
 int rdbSaveObjectType(rio *rdb, robj *o);
 int rdbLoadObjectType(rio *rdb);
-int rdbLoad(char *filename, rdbSaveInfo *rsi);
+int rdbLoad(char *filename, rdbSaveInfo *rsi);\
+void *importDataBackgroundJobs(void *arg);
+int importDataRdbLoad(char *filename, rdbSaveInfo *rsi);
 int rdbSaveBackground(char *filename, rdbSaveInfo *rsi);
 int rdbSaveToSlavesSockets(rdbSaveInfo *rsi);
+int migrateDataRdbSaveToTargetSockets(rdbSaveInfo *rsi,int fd);
 void rdbRemoveTempFile(pid_t childpid);
 int rdbSave(char *filename, rdbSaveInfo *rsi);
 ssize_t rdbSaveObject(rio *rdb, robj *o, robj *key);
@@ -155,6 +158,7 @@ int rdbLoadBinaryDoubleValue(rio *rdb, double *val);
 int rdbSaveBinaryFloatValue(rio *rdb, float val);
 int rdbLoadBinaryFloatValue(rio *rdb, float *val);
 int rdbLoadRio(rio *rdb, rdbSaveInfo *rsi, int loading_aof);
+int importDataRdbLoadRio(rio *rdb, rdbSaveInfo *rsi, int loading_aof);
 rdbSaveInfo *rdbPopulateSaveInfo(rdbSaveInfo *rsi);
 
 #endif

@@ -91,10 +91,13 @@ client *createClient(int fd) {
      * in the context of a client. When commands are executed in other
      * contexts (for instance a Lua script) we need a non connected client. */
     if (fd != -1) {
+        //设置socket 非阻塞
         anetNonBlock(NULL,fd);
+        //设置，可以节约带宽
         anetEnableTcpNoDelay(NULL,fd);
         if (server.tcpkeepalive)
             anetKeepAlive(NULL,fd,server.tcpkeepalive);
+
         if (aeCreateFileEvent(server.el,fd,AE_READABLE,
             readQueryFromClient, c) == AE_ERR)
         {
@@ -237,6 +240,7 @@ int prepareClientToWrite(client *c) {
  * -------------------------------------------------------------------------- */
 
 int _addReplyToBuffer(client *c, const char *s, size_t len) {
+    //可剩下的数据
     size_t available = sizeof(c->buf)-c->bufpos;
 
     if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return C_OK;
@@ -426,7 +430,7 @@ void *addDeferredMultiBulkLength(client *c) {
     return listLast(c->reply);
 }
 
-/* Populate the length object and try gluing it to the next chunk. */
+/* Populate the length object and try gluing it to the next chunk 块. */
 void setDeferredMultiBulkLength(client *c, void *node, long length) {
     listNode *ln = (listNode*)node;
     clientReplyBlock *next;
@@ -656,6 +660,7 @@ void copyClientOutputBuffer(client *dst, client *src) {
 
 /* Return true if the specified client has pending reply buffers to write to
  * the socket. */
+/* 如果指定的客户端有待写入套接字的待处理回复缓冲区，则返回 true。 */
 int clientHasPendingReplies(client *c) {
     return c->bufpos || listLength(c->reply);
 }
@@ -731,6 +736,7 @@ static void acceptCommonHandler(int fd, int flags, char *ip) {
     c->flags |= flags;
 }
 
+//接口accept通过三次握手与客户端建立连接
 void acceptTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
     char cip[NET_IP_STR_LEN];
@@ -781,6 +787,9 @@ static void freeClientArgv(client *c) {
 /* Close all the slaves connections. This is useful in chained replication
  * when we resync with our own master and want to force all our slaves to
  * resync with us as well. */
+/* 关闭所有从站连接。
+ * 当我们与我们自己的 master 重新同步并希望强制我们所有的 slave 也与我们重新同步时，
+ * 这在链式复制中很有用。 */
 void disconnectSlaves(void) {
     while (listLength(server.slaves)) {
         listNode *ln = listFirst(server.slaves);
@@ -797,29 +806,35 @@ void unlinkClient(client *c) {
     /* If this is marked as current client unset it. */
     if (server.current_client == c) server.current_client = NULL;
 
-    /* Certain operations must be done only if the client has an active socket.
+    /* Certain operations 某些操作 must be done only if the client has an active socket.
      * If the client was already unlinked or if it's a "fake client" the
      * fd is already set to -1. */
     if (c->fd != -1) {
         /* Remove from the list of active clients. */
         if (c->client_list_node) {
             uint64_t id = htonu64(c->id);
+            //删除index 里面数据
             raxRemove(server.clients_index,(unsigned char*)&id,sizeof(id),NULL);
+            //删除node数据
             listDelNode(server.clients,c->client_list_node);
             c->client_list_node = NULL;
         }
 
-        /* In the case of diskless replication the fork is writing to the
+        /* In the case of diskless replication  the fork is writing to the
          * sockets and just closing the fd isn't enough, if we don't also
          * shutdown the socket the fork will continue to write to the slave
          * and the salve will only find out that it was disconnected when
          * it will finish reading the rdb. */
+        //在无盘复制，fork 往套接字里面写数据的情况下，只是关闭fd是不够的，
+        //如果不关闭socket，socket 会继续写入数据，
+        //从节点在完成写数据的时候才会发现连接断开
+
         if ((c->flags & CLIENT_SLAVE) &&
             (c->replstate == SLAVE_STATE_WAIT_BGSAVE_END)) {
             shutdown(c->fd, SHUT_RDWR);
         }
 
-        /* Unregister async I/O handlers and close the socket. */
+        /* Unregister 注销 async I/O handlers and close the socket. */
         aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
         aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         close(c->fd);
@@ -849,6 +864,7 @@ void freeClient(client *c) {
 
     /* If a client is protected, yet we need to free it right now, make sure
      * to at least use asynchronous freeing. */
+    // 如果连接是受保护的,但是我们需要立马释放它,确保至少异步释放
     if (c->flags & CLIENT_PROTECTED) {
         freeClientAsync(c);
         return;
@@ -859,7 +875,13 @@ void freeClient(client *c) {
      *
      * Note that before doing this we make sure that the client is not in
      * some unexpected state, by checking its flags. */
+    /* 如果是我们的主节点开始断开连接，我们应该确保
+       * 缓存状态以便稍后尝试部分重新同步。
+       *
+       * 请注意，在执行此操作之前，我们确保客户端不在
+       * 一些意想不到的状态，通过检查它的标志。 */
     if (server.master && c->flags & CLIENT_MASTER) {
+        //从节点连接不到master
         serverLog(LL_WARNING,"Connection with master lost.");
         if (!(c->flags & (CLIENT_CLOSE_AFTER_REPLY|
                           CLIENT_CLOSE_ASAP|
@@ -882,6 +904,7 @@ void freeClient(client *c) {
     c->querybuf = NULL;
 
     /* Deallocate structures used to block on blocking ops. */
+    // 解除分配结构 用于对阻塞操作的阻塞
     if (c->flags & CLIENT_BLOCKED) unblockClient(c);
     dictRelease(c->bpop.keys);
 
@@ -890,6 +913,7 @@ void freeClient(client *c) {
     listRelease(c->watched_keys);
 
     /* Unsubscribe from all the pubsub channels */
+    // 退订
     pubsubUnsubscribeAllChannels(c,0);
     pubsubUnsubscribeAllPatterns(c,0);
     dictRelease(c->pubsub_channels);
@@ -947,7 +971,11 @@ void freeClient(client *c) {
 /* Schedule a client to free it at a safe time in the serverCron() function.
  * This function is useful when we need to terminate a client but we are in
  * a context where calling freeClient() is not possible, because the client
- * should be valid for the continuation of the flow of the program. */
+ * should be valid  for the continuation  of the flow  of the program. */
+/* 在 serverCron() 函数中安排客户端在安全时间释放它。
+  * 当我们需要终止客户端但我们处于
+  * 无法调用 freeClient() 的上下文，因为客户端
+  * 应该对程序流程的继续continuation有效。 */
 void freeClientAsync(client *c) {
     if (c->flags & CLIENT_CLOSE_ASAP || c->flags & CLIENT_LUA) return;
     c->flags |= CLIENT_CLOSE_ASAP;
@@ -976,6 +1004,8 @@ client *lookupClientByID(uint64_t id) {
 
 /* Write data in output buffers to client. Return C_OK if the client
  * is still valid after the call, C_ERR if it was freed. */
+/* 将输出缓冲区中的数据写入客户端。 如果客户端返回 C_OK
+  * 调用后仍然有效，如果被释放，则为 C_ERR。 */
 int writeToClient(int fd, client *c, int handler_installed) {
     ssize_t nwritten = 0, totwritten = 0;
     size_t objlen;
@@ -1076,9 +1106,9 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 }
 
 /* This function is called just before entering the event loop, in the hope
- * we can just write the replies to the client output buffer without any
- * need to use a syscall in order to install the writable event handler,
- * get it called, and so forth. */
+ * we can just write the replies 回复 to the client output buffer without any
+ * need to use a syscall 系统调用 in order to install the writable event handler,
+ * get it called, and so forth.等等 */
 int handleClientsWithPendingWrites(void) {
     listIter li;
     listNode *ln;
@@ -1525,6 +1555,11 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
      * at the risk of requiring more read(2) calls. This way the function
      * processMultiBulkBuffer() can avoid copying buffers to create the
      * Redis Object representing the argument. */
+    /* 如果这是一个多批量请求，
+     * 并且我们正在处理一个足够大的批量回复，
+     * 尝试最大化查询缓冲区准确包含代表对象的 SDS 字符串的概率，
+     * 即使需要更多读取的风险（2 ) 调用。
+     * 这样，函数 processMultiBulkBuffer() 可以避免复制缓冲区来创建表示参数的 Redis 对象。 */
     if (c->reqtype == PROTO_REQ_MULTIBULK && c->multibulklen && c->bulklen != -1
         && c->bulklen >= PROTO_MBULK_BIG_ARG)
     {
@@ -1562,6 +1597,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     sdsIncrLen(c->querybuf,nread);
     c->lastinteraction = server.unixtime;
     if (c->flags & CLIENT_MASTER) c->read_reploff += nread;
+    //进入的流量
     server.stat_net_input_bytes += nread;
     if (sdslen(c->querybuf) > server.client_max_querybuf_len) {
         sds ci = catClientInfoString(sdsempty(),c), bytes = sdsempty();
@@ -2023,6 +2059,7 @@ void rewriteClientCommandArgument(client *c, int i, robj *newval) {
  * Note: this function is very fast so can be called as many time as
  * the caller wishes. The main usage of this function currently is
  * enforcing the client output length limits. */
+// 这个函数返回redis 用来存储回复,但是还没有被client读取的字节大小
 unsigned long getClientOutputBufferMemoryUsage(client *c) {
     unsigned long list_item_size = sizeof(listNode) + sizeof(clientReplyBlock);
     return c->reply_bytes + (list_item_size*listLength(c->reply));
@@ -2134,6 +2171,10 @@ void asyncCloseClientOnOutputBufferLimitReached(client *c) {
  * output buffers without returning control to the event loop.
  * This is also called by SHUTDOWN for a best-effort attempt to send
  * slaves the latest writes. */
+/* freeMemoryIfNeeded() 使用的辅助函数来刷新从属
+  * 输出缓冲区而不将控制权返回给事件循环。
+  * 这也被 SHUTDOWN 调用以尽最大努力发送
+  * 从属最新的写入。 */
 void flushSlavesOutputBuffers(void) {
     listIter li;
     listNode *ln;
@@ -2194,6 +2235,8 @@ void pauseClients(mstime_t end) {
 
 /* Return non-zero if clients are currently paused. As a side effect the
  * function checks if the pause time was reached and clear it. */
+/* 如果客户端当前暂停，则返回非零值。 作为一个副作用
+  * 函数检查是否达到暂停时间并清除它。 */
 int clientsArePaused(void) {
     if (server.clients_paused &&
         server.clients_pause_end_time < server.mstime)
@@ -2206,6 +2249,8 @@ int clientsArePaused(void) {
 
         /* Put all the clients in the unblocked clients queue in order to
          * force the re-processing of the input buffer if any. */
+        /* 将所有客户端放入未阻塞的客户端队列中
+          * 强制重新处理输入缓冲区（如果有）。 */
         listRewind(server.clients,&li);
         while ((ln = listNext(&li)) != NULL) {
             c = listNodeValue(ln);
